@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AgtronCam Ultra — Fabaro Kopi (Mobile)</title>
+  <meta name="description" content="Estimator level roasting kopi via kamera HP. Mobile-precision layout untuk Android & iPhone. Fabaro Kopi brand." />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top);
+      --safe-bottom: env(safe-area-inset-bottom);
+    }
+    body { min-height: 100svh; }
+    .mono{ font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
+    .meter{ height:.6rem; background:#eef2f7; border-radius:.5rem; overflow:hidden; border:1px solid #e5e7eb; }
+    .meter > div{ height:100%; width:0%; background:#0f172a; transition: width .3s ease; }
+    .badge{ padding:.2rem .6rem; border-radius:9999px; font-weight:800; color:white; background:#10b981; }
+    .overlay{ position:relative; overflow:hidden; border-radius:1rem; background:black; }
+    .grid-bg{ background-image: linear-gradient(to right, rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.08) 1px, transparent 1px); background-size: 22px 22px; }
+    #roiCircle{ position:absolute; border:2px dashed rgba(255,255,255,.95); border-radius:9999px; box-shadow:0 0 0 9999px rgba(0,0,0,.35); pointer-events:none; }
+    #roiWhite{ position:absolute; border:2px dashed rgba(255,255,255,.95); background: rgba(255,255,255,.15); box-shadow:0 0 0 9999px rgba(0,0,0,.25); pointer-events:none; }
+    .touch{ min-height: 44px; }
+    .sticky-header{ position: sticky; top: 0; z-index: 30; padding-top: var(--safe-top); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    .sticky-actions{ position: sticky; bottom: 0; z-index: 30; padding-bottom: calc(var(--safe-bottom) + .25rem); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-white to-slate-50 text-slate-900">
+  <div class="max-w-[1100px] mx-auto px-3">
+    <!-- Sticky Top Bar -->
+    <header class="sticky-header bg-white/70 border-b border-slate-200 shadow-sm">
+      <div class="flex items-center justify-between gap-3 py-2">
+        <div class="flex items-center gap-3">
+          <img src="/brand/header-logo.png" srcset="/brand/header-logo.png 1x, /brand/header-logo@2x.png 2x" alt="Fabaro Kopi" class="h-10 w-auto" />
+          <div class="leading-tight">
+            <h1 class="text-lg font-extrabold tracking-tight">AgtronCam <span class="text-sky-700">Ultra</span></h1>
+            <div class="text-[10px] font-semibold inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 mt-0.5">Fabaro Kopi</div>
+          </div>
+        </div>
+        <div class="hidden sm:flex items-center gap-2">
+          <button id="btnInstallTop" class="touch px-3 py-2 rounded-lg bg-black text-white text-xs font-semibold shadow hover:opacity-90" onclick="document.getElementById('btnInstall')?.click()">Install</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Camera Panel -->
+    <section class="mt-3 rounded-2xl border border-slate-200 bg-white shadow-sm p-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <h2 class="font-semibold">Kamera & Sampel</h2>
+          <div class="px-2 py-1 rounded-full border border-slate-200 text-xs text-slate-600 bg-white">
+            Mode: <select id="mode" class="bg-transparent outline-none">
+              <option value="ground">Ground</option>
+              <option value="bean">Whole Bean</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="btnStart" class="touch px-3 py-2 rounded-lg bg-black text-white text-sm font-semibold shadow">Mulai Kamera</button>
+          <button id="btnPause" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold shadow">Jeda</button>
+          <button id="btnSnap" class="touch px-3 py-2 rounded-lg border border-dashed border-slate-300 text-sm font-semibold text-sky-700 bg-white">Snapshot</button>
+        </div>
+      </div>
+
+      <div class="overlay grid-bg">
+        <video id="video" playsinline autoplay muted class="w-full h-[58svh] object-cover"></video>
+        <canvas id="canvas" class="hidden"></canvas>
+        <div id="roiCircle"></div>
+        <div id="roiWhite"></div>
+      </div>
+
+      <!-- Hidden on mobile because we add bottom action bar; still present for desktop -->
+      <div class="mt-3 hidden sm:grid grid-cols-2 md:grid-cols-3 gap-2">
+        <button id="btnCalib" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold shadow">Kalibrasi Putih</button>
+        <button id="btnGrayCard" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold shadow">Optimasi Gray Card</button>
+        <button id="btnMeasure" class="touch px-3 py-2 rounded-lg bg-black text-white text-sm font-semibold shadow">Ukur (Avg)</button>
+        <button id="btnSave" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold shadow">Simpan</button>
+        <button id="btnReset" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold shadow">Reset</button>
+        <button id="btnInstall" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold shadow">Install App</button>
+      </div>
+    </section>
+
+    <!-- Results Panel -->
+    <section class="mt-3 rounded-2xl border border-slate-200 bg-white shadow-sm p-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-semibold">Hasil & Kalibrasi</h2>
+        <div class="flex items-center gap-2">
+          <div class="px-2 py-1 rounded-full border border-slate-200 text-xs text-slate-600 bg-white">
+            Skema: <select id="scheme" class="bg-transparent outline-none">
+              <option value="gourmet">Gourmet</option>
+              <option value="commercial">Commercial</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <button id="btnExportCSV" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold shadow">Export CSV</button>
+          <button id="btnExportModel" class="touch px-3 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-semibold text-sky-700 bg-white">Export Model</button>
+          <label class="touch px-3 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-semibold text-sky-700 bg-white cursor-pointer">
+            Import Model <input id="importModel" type="file" accept="application/json" class="hidden"/>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+        <div class="p-3 rounded-lg border border-slate-200 bg-white/80">
+          <div class="text-sm text-slate-600">Agtron (estimasi)</div>
+          <div class="text-3xl font-extrabold mono"><span id="agtron">--</span></div>
+          <div class="mt-2 flex items-center gap-2">
+            <span id="badge" class="badge">—</span>
+            <span id="desc" class="text-sm text-slate-600"></span>
+          </div>
+          <div class="mt-3">
+            <div class="meter"><div id="agtronBar"></div></div>
+            <div class="flex justify-between text-xs text-slate-400 mt-1"><span>Very Dark</span><span>Very Light</span></div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-lg border border-slate-200 bg-white/80">
+          <div class="text-sm text-slate-600">CIELAB</div>
+          <div class="mono text-xl font-semibold"><span id="L">--</span> / <span id="a">--</span> / <span id="b">--</span></div>
+          <div class="text-xs text-slate-500">L* terang, a* hijau→merah, b* biru→kuning</div>
+        </div>
+
+        <div class="p-3 rounded-lg border border-slate-200 bg-white/80">
+          <div class="text-sm text-slate-600 mb-1">Kalibrasi</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs">Scale</label>
+              <input id="scale" type="range" min="0.4" max="2.4" step="0.01" class="w-full" />
+              <div class="mono text-right text-xs" id="scaleVal">1.20</div>
+            </div>
+            <div>
+              <label class="text-xs">Offset</label>
+              <input id="offset" type="range" min="-40" max="50" step="0.5" class="w-full" />
+              <div class="mono text-right text-xs" id="offsetVal">10.0</div>
+            </div>
+          </div>
+          <div class="mt-2 p-2 rounded border border-slate-200/80 bg-white/70">
+            <div class="text-xs font-semibold mb-2">Multi-Point Fit</div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
+              <div>
+                <input id="refVal" type="number" step="0.1" class="w-full border rounded px-2 py-1" placeholder="Agtron referensi" />
+                <button id="capPoint" class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold shadow w-full mt-1">Tambah Kalibrasi</button>
+              </div>
+              <div class="md:col-span-2 text-xs text-slate-600">
+                <div>Points: <span id="ptsCount">0</span> • Model: <span id="modelInfo">Linear</span></div>
+                <div class="mt-1 flex flex-wrap gap-2">
+                  <button id="fitLinear" class="touch px-3 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-semibold text-sky-700 bg-white">Fit Linear</button>
+                  <button id="fitPoly" class="touch px-3 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-semibold text-sky-700 bg-white">Fit Polinomial</button>
+                  <button id="clearPts" class="touch px-3 py-2 rounded-lg border border-dashed border-slate-300 text-xs font-semibold text-sky-700 bg-white">Clear Points</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-lg border border-slate-200 bg-white/80">
+          <div class="text-sm text-slate-600">Kualitas & Gate</div>
+          <div class="text-sm mt-1">
+            <div>Glare: <span id="glare" class="mono">--</span>%</div>
+            <div>WB ΔRGB: <span id="wbErr" class="mono">--</span></div>
+            <div>Stabilitas (EMA): <span id="stability" class="mono">--</span></div>
+          </div>
+          <div class="mt-2">
+            <div class="text-xs text-slate-600 mb-1">Ready Score</div>
+            <div class="meter"><div id="readyBar"></div></div>
+          </div>
+          <div class="flex gap-2 mt-2 items-center">
+            <label class="text-xs">Gate</label>
+            <select id="gate" class="border rounded px-2 py-1 text-xs">
+              <option value="loose">Loose</option>
+              <option value="normal" selected>Normal</option>
+              <option value="strict">Strict</option>
+            </select>
+            <span id="gateMsg" class="text-xs text-amber-600"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sticky Bottom Actions (Mobile) -->
+    <div class="sticky-actions bg-white/85 border-t border-slate-200 shadow-sm sm:hidden mt-3">
+      <div class="grid grid-cols-3 gap-2 p-2">
+        <button class="touch px-3 py-3 rounded-xl bg-black text-white text-sm font-semibold shadow" onclick="document.getElementById('btnStart').click()">Mulai Kamera</button>
+        <button class="touch px-3 py-3 rounded-xl bg-sky-600 text-white text-sm font-semibold shadow" onclick="document.getElementById('btnMeasure').click()">Ukur</button>
+        <button class="touch px-3 py-3 rounded-xl bg-white border border-slate-200 text-sm font-semibold shadow" onclick="document.getElementById('btnCalib').click()">Kalibrasi</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 p-2">
+        <button class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold shadow" onclick="document.getElementById('btnPause').click()">Jeda</button>
+        <button class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold shadow" onclick="document.getElementById('btnSave').click()">Simpan</button>
+        <button class="touch px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold shadow" onclick="document.getElementById('btnReset').click()">Reset</button>
+      </div>
+    </div>
+
+    <footer class="text-center text-xs text-slate-500 py-3">© <span id="year"></span> AgtronCam Ultra · Fabaro Kopi · Mobile</footer>
+  </div>
+
+  <script src="/app.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+  </script>
+</body>
+</html>
